@@ -14,6 +14,7 @@ router.get("/", (req, res) => {
 // register user request
 router.post("/register", middleware.validateRegistration, (req, res) => {
   const email = req.body.email.toLowerCase();
+  console.log(req.body);
   con.query(
     `SELECT * FROM users WHERE email = ${mysql.escape(email)}`,
     (err, result) => {
@@ -29,7 +30,7 @@ router.post("/register", middleware.validateRegistration, (req, res) => {
             con.query(
               `INSERT INTO users (email, password, user_type) VALUES (${mysql.escape(
                 email
-              )}, ${mysql.escape(hash)}, 'standard')`,
+              )}, ${mysql.escape(hash)}, 'admin')`,
               (err, result) => {
                 if (err) {
                   res.status(400).json(err);
@@ -87,7 +88,7 @@ router.post("/login", (req, res) => {
 
 // public get showtimes
 router.get("/showtimes", (req, res) => {
-  // let now = new Date().toLocaleDateString("LT-lt");
+  let now = new Date().toLocaleDateString("LT-lt");
   con.query(
     //   `SELECT showtimes_test.id AS show_id, showtimes_test.time, showtimes_test.date, movies_test.*, rooms_test.seats, tickets.tickets FROM showtimes_test
     // INNER JOIN movies_test ON showtimes_test.movie_id = movies_test.id
@@ -96,9 +97,9 @@ router.get("/showtimes", (req, res) => {
     // WHERE showtimes_test.date = '${now}' ORDER BY showtimes_test.time ASC`,
     `SELECT showtimes_test.id AS show_id, showtimes_test.time, showtimes_test.date, movies_test.*, rooms_test.seats, tickets.tickets FROM showtimes_test 
   INNER JOIN movies_test ON showtimes_test.movie_id = movies_test.id
-  LEFT JOIN (SELECT id, rows * row_seats AS seats FROM rooms_test) AS rooms_test ON showtimes_test.room_id = rooms_test.id
+  LEFT JOIN (SELECT id, row_count * row_seats AS seats FROM rooms_test) AS rooms_test ON showtimes_test.room_id = rooms_test.id
   LEFT JOIN (SELECT event_id, COUNT(id) AS tickets FROM tickets_test GROUP BY event_id ) as tickets ON showtimes_test.id = tickets.event_id
-  WHERE showtimes_test.date = '2020-12-19' ORDER BY showtimes_test.time ASC`,
+  WHERE showtimes_test.date = '${now}' ORDER BY showtimes_test.time ASC`,
     (err, result) => {
       if (err) {
         console.log(err);
@@ -129,7 +130,7 @@ function GenSeats(rows, row_seats) {
 router.get("/showtimes/:id", middleware.isLoggedIn, (req, res) => {
   if (req.params.id) {
     con.query(
-      `SELECT showtimes_test.*, movies_test.title, movies_test.poster_img, rooms_test.rows, rooms_test.row_seats
+      `SELECT showtimes_test.*, movies_test.title, movies_test.poster_img, rooms_test.row_count, rooms_test.row_seats
     FROM showtimes_test
     LEFT JOIN movies_test ON showtimes_test.movie_id = movies_test.id
     LEFT JOIN rooms_test ON showtimes_test.room_id = rooms_test.id
@@ -141,7 +142,7 @@ router.get("/showtimes/:id", middleware.isLoggedIn, (req, res) => {
             : res.status(400).json({ msg: "Error in founding this ID." });
         } else {
           let res_data = { showtime: [], seats: [], tickets: [] };
-          let temp_seats = GenSeats(result[0].rows, result[0].row_seats);
+          let temp_seats = GenSeats(result[0].row_count, result[0].row_seats);
           res_data.showtime = result;
           res_data.seats = temp_seats;
           con.query(
@@ -493,7 +494,7 @@ router.post("/cinema/add", middleware.isLoggedIn, (req, res) => {
     req.body.row_seats < 21
   ) {
     con.query(
-      `INSERT INTO rooms_test (title, rows, row_seats) VALUES(${mysql.escape(
+      `INSERT INTO rooms_test (title, row_count, row_seats) VALUES(${mysql.escape(
         req.body.title
       )}, ${mysql.escape(req.body.rows)}, ${mysql.escape(req.body.row_seats)})`,
       (err, result) => {
@@ -517,7 +518,7 @@ router.get("/showtimes/get/all", middleware.isLoggedIn, (req, res) => {
     con.query(
       `SELECT showtimes_test.id AS show_id, showtimes_test.time, showtimes_test.date, movies_test.title, rooms_test.seats, rooms_test.room_title, tickets.tickets, showtimes_test.price FROM showtimes_test 
     LEFT JOIN movies_test ON showtimes_test.movie_id = movies_test.id
-    LEFT JOIN (SELECT id, title as room_title, rows * row_seats AS seats FROM rooms_test) AS rooms_test ON showtimes_test.room_id = rooms_test.id
+    LEFT JOIN (SELECT id, title as room_title, row_count * row_seats AS seats FROM rooms_test) AS rooms_test ON showtimes_test.room_id = rooms_test.id
     LEFT JOIN (SELECT event_id, COUNT(id) AS tickets FROM tickets_test GROUP BY event_id ) as tickets ON showtimes_test.id = tickets.event_id
     ORDER BY showtimes_test.date ASC`,
       (err, result) => {
