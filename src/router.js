@@ -14,7 +14,6 @@ router.get("/", (req, res) => {
 // register user request
 router.post("/register", middleware.validateRegistration, (req, res) => {
   const email = req.body.email.toLowerCase();
-  console.log(req.body);
   con.query(
     `SELECT * FROM users WHERE email = ${mysql.escape(email)}`,
     (err, result) => {
@@ -88,13 +87,8 @@ router.post("/login", (req, res) => {
 
 // public get showtimes
 router.get("/showtimes", (req, res) => {
-  let now = new Date().toLocaleDateString("LT-lt");
+  let now = new Date().toISOString().slice(0, 10);
   con.query(
-    //   `SELECT showtimes_test.id AS show_id, showtimes_test.time, showtimes_test.date, movies_test.*, rooms_test.seats, tickets.tickets FROM showtimes_test
-    // INNER JOIN movies_test ON showtimes_test.movie_id = movies_test.id
-    // LEFT JOIN (SELECT id, rows * row_seats AS seats FROM rooms_test) AS rooms_test ON showtimes_test.room_id = rooms_test.id
-    // LEFT JOIN (SELECT event_id, COUNT(id) AS tickets FROM tickets_test GROUP BY event_id ) as tickets ON showtimes_test.id = tickets.event_id
-    // WHERE showtimes_test.date = '${now}' ORDER BY showtimes_test.time ASC`,
     `SELECT showtimes_test.id AS show_id, showtimes_test.time, showtimes_test.date, movies_test.*, rooms_test.seats, tickets.tickets FROM showtimes_test 
   INNER JOIN movies_test ON showtimes_test.movie_id = movies_test.id
   LEFT JOIN (SELECT id, row_count * row_seats AS seats FROM rooms_test) AS rooms_test ON showtimes_test.room_id = rooms_test.id
@@ -168,7 +162,6 @@ router.get("/showtimes/:id", middleware.isLoggedIn, (req, res) => {
 
 // user post tickets to write to db
 router.post("/tickets", middleware.isLoggedIn, (req, res) => {
-  console.log(req.body);
   if (
     req.body.event_id &&
     req.body.ticket_price &&
@@ -212,8 +205,7 @@ router.post("/tickets", middleware.isLoggedIn, (req, res) => {
                     if (i === Number(req.body.ticket_seat.length) - 1) {
                       error_status.length > 0
                         ? res.status(400).json({
-                            msg:
-                              "Some of your seats could not be booked, please contact administrator.",
+                            msg: "Some of your seats could not be booked, please contact administrator.",
                           })
                         : res.status(200).json({ msg: "Your seats booked." });
                     }
@@ -234,7 +226,6 @@ router.post("/tickets", middleware.isLoggedIn, (req, res) => {
 
 // user get tickets request
 router.get("/tickets", middleware.isLoggedIn, (req, res) => {
-  console.log(req.userData);
   con.query(
     `SELECT * FROM tickets_test WHERE user_id = ${mysql.escape(
       req.userData.userId
@@ -265,14 +256,13 @@ router.delete("/tickets/delete/:id", middleware.isLoggedIn, (req, res) => {
                 .json({ msg: "No such ticket found in database." });
         } else {
           let date_now = new Date().toLocaleDateString("LT-lt");
-          console.log("date now: " + date_now);
-          console.log(
-            "date of ticket: " +
-              result[0].event_date.toLocaleDateString("LT-lt")
+          let date_ticket = new Date(result[0].event_date).toLocaleDateString(
+            "LT-lt"
           );
+
           if (
             result[0].user_id === req.userData.userId &&
-            result[0].event_date.toLocaleDateString("LT-lt") > date_now
+            date_ticket > date_now
           ) {
             con.query(
               `DELETE FROM tickets_test WHERE id = '${result[0].id}'`,
@@ -329,7 +319,6 @@ router.get("/movies", middleware.isLoggedIn, (req, res) => {
 
 // admin delete movie by id request
 router.delete("/movies/delete/:id", middleware.isLoggedIn, (req, res) => {
-  console.log(req.params.id);
   if (req.params.id && req.userData.user_type === "admin") {
     con.query(
       `DELETE FROM movies_test WHERE id = ${mysql.escape(req.params.id)}`,
@@ -348,7 +337,6 @@ router.delete("/movies/delete/:id", middleware.isLoggedIn, (req, res) => {
 
 // admin add movie post
 router.post("/movies/add", middleware.isLoggedIn, (req, res) => {
-  console.log(req.body);
   if (
     req.body &&
     req.userData.user_type === "admin" &&
@@ -540,10 +528,8 @@ router.post(
   middleware.isLoggedIn,
   middleware.validateShowtime,
   (req, res) => {
-    console.log("showtime post: " + req.body.date);
     if (req.userData.user_type === "admin") {
       let show_date = req.body.date;
-      console.log("show date: " + show_date);
       con.query(
         `INSERT INTO showtimes_test (time, date, room_id, movie_id, price) VALUES(${mysql.escape(
           req.body.time
